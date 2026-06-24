@@ -1,53 +1,40 @@
-const express = require("express");
-const cors = require("cors");
+const { spawn } = require("child_process");
 const path = require("path");
 
-const app = express();
+const getRecommendations = (movieName) => {
+  return new Promise((resolve, reject) => {
+    const pythonProcess = spawn("python3", [
+      path.join(__dirname, "../python/recommend.py"),
+      movieName,
+    ]);
 
-const movieRoutes = require("./routes/movie.routes");
-const recommendationRoutes = require("./routes/recommendation.routes");
-const authRoutes = require("./routes/auth.routes");
-const userRoutes = require("./routes/user.routes");
+    let dataBuffer = "";
+    let errorBuffer = "";
 
-app.use(cors());
-app.use(express.json());
+    pythonProcess.stdout.on("data", (data) => {
+      dataBuffer += data.toString();
+    });
 
-/* API Routes */
-app.use("/api/movies", movieRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/recommendations", recommendationRoutes);
+    pythonProcess.stderr.on("data", (data) => {
+      errorBuffer += data.toString();
+    });
 
-/* Health Check */
-app.get("/api/test-db", async (req, res) => {
-  const mongoose = require("mongoose");
+    pythonProcess.on("close", (code) => {
+      if (code !== 0) {
+        reject(errorBuffer);
+        return;
+      }
 
-  res.json({
-    connected:
-      mongoose.connection.readyState === 1,
-    database:
-      mongoose.connection.name,
+      try {
+        const result = JSON.parse(dataBuffer);
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    });
   });
-});
+};
 
-/* Serve React Build */
-app.use(
-  express.static(
-    path.join(
-      __dirname,
-      "../../client/dist"
-    )
-  )
-);
-
-/* React Router Support */
-app.get(/.*/, (req, res) => {
-  res.sendFile(
-    path.join(
-      __dirname,
-      "../../client/dist/index.html"
-    )
-  );
-});
-
-module.exports = app;
+module.exports = {
+  getRecommendations,
+};
