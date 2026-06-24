@@ -1,41 +1,53 @@
-const { spawn } = require("child_process");
+const express = require("express");
+const cors = require("cors");
 const path = require("path");
 
-const getRecommendations = (movieName) => {
-  return new Promise((resolve, reject) => {
-    const pythonProcess = spawn("python", [
-      path.join(__dirname, "../python/recommend.py"),
-      movieName,
-    ]);
+const app = express();
 
-    let dataBuffer = "";
-    let errorBuffer = "";
+const movieRoutes = require("./routes/movie.routes");
+const recommendationRoutes = require("./routes/recommendation.routes");
+const authRoutes = require("./routes/auth.routes");
+const userRoutes = require("./routes/user.routes");
 
-    pythonProcess.stdout.on("data", (data) => {
-      dataBuffer += data.toString();
-    });
+app.use(cors());
+app.use(express.json());
 
-    pythonProcess.stderr.on("data", (data) => {
-      errorBuffer += data.toString();
-    });
+/* API Routes */
+app.use("/api/movies", movieRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/recommendations", recommendationRoutes);
 
-    pythonProcess.on("close", (code) => {
-      if (code !== 0) {
-        reject(errorBuffer);
-        return;
-      }
+/* Health Check */
+app.get("/api/test-db", async (req, res) => {
+  const mongoose = require("mongoose");
 
-      try {
-        const result = JSON.parse(dataBuffer);
-
-        resolve(result);
-      } catch (error) {
-        reject(error);
-      }
-    });
+  res.json({
+    connected:
+      mongoose.connection.readyState === 1,
+    database:
+      mongoose.connection.name,
   });
-};
+});
 
-module.exports = {
-  getRecommendations,
-};
+/* Serve React Build */
+app.use(
+  express.static(
+    path.join(
+      __dirname,
+      "../../client/dist"
+    )
+  )
+);
+
+/* React Router Support */
+app.get(/.*/, (req, res) => {
+  res.sendFile(
+    path.join(
+      __dirname,
+      "../../client/dist/index.html"
+    )
+  );
+});
+
+module.exports = app;
