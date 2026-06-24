@@ -9,6 +9,8 @@ import {
 
 import { Toaster } from "react-hot-toast";
 
+import toast from "react-hot-toast";
+
 import {
   useAuth,
 } from "../../contexts/AuthContext";
